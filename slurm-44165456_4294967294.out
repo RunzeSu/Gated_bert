@@ -1,0 +1,117 @@
+/mnt/ufs18/home-052/surunze/Gated_bert/run_multi_task_gated.py:735: SyntaxWarning: "is not" with a literal. Did you mean "!="?
+  if args.h_aug is not 'n/a':
+01/20/2022 12:39:14 - INFO - __main__ -   device cuda n_gpu 1 distributed training False
+01/20/2022 12:39:15 - INFO - __main__ -   LOOKING AT data/glue/MRPC/train.tsv
+01/20/2022 12:40:01 - INFO - __main__ -     Num Tasks = 8
+01/20/2022 12:40:02 - INFO - __main__ -   ***** training data for cola *****
+01/20/2022 12:40:02 - INFO - __main__ -     Data size = 8551
+01/20/2022 12:40:04 - INFO - __main__ -   ***** training data for mrpc *****
+01/20/2022 12:40:04 - INFO - __main__ -     Data size = 3668
+01/20/2022 12:42:28 - INFO - __main__ -   ***** training data for mnli *****
+01/20/2022 12:42:28 - INFO - __main__ -     Data size = 392702
+01/20/2022 12:42:34 - INFO - __main__ -   ***** training data for rte *****
+01/20/2022 12:42:34 - INFO - __main__ -     Data size = 2490
+01/20/2022 12:42:35 - INFO - __main__ -   ***** training data for sts *****
+01/20/2022 12:42:35 - INFO - __main__ -     Data size = 5749
+01/20/2022 12:42:44 - INFO - __main__ -   ***** training data for sst *****
+01/20/2022 12:42:44 - INFO - __main__ -     Data size = 67349
+01/20/2022 12:44:26 - INFO - __main__ -   ***** training data for qqp *****
+01/20/2022 12:44:26 - INFO - __main__ -     Data size = 363846
+01/20/2022 12:45:19 - INFO - __main__ -   ***** training data for qnli *****
+01/20/2022 12:45:19 - INFO - __main__ -     Data size = 104743
+01/20/2022 12:45:20 - INFO - __main__ -     Num param = 289022320
+True Tesla V100-SXM2-32GB
+cuda
+8 ['cola', 'mrpc', 'mnli', 'rte', 'sts', 'sst', 'qqp', 'qnli']
+Epoch:   0%|          | 0/25 [00:00<?, ?it/s]01/20/2022 12:45:21 - INFO - __main__ -   Task: 2, Step: 0
+01/20/2022 12:45:21 - INFO - __main__ -   Loss: 1.14579439163208
+/mnt/ufs18/home-052/surunze/Gated_bert/optimization_gated.py:154: UserWarning: This overload of add_ is deprecated:
+	add_(Number alpha, Tensor other)
+Consider using one of the following signatures instead:
+	add_(Tensor other, *, Number alpha) (Triggered internally at  ../torch/csrc/utils/python_arg_parser.cpp:1050.)
+  next_m.mul_(beta1).add_(1 - beta1, grad)
+01/20/2022 12:45:21 - INFO - __main__ -   Task: 6, Step: 1
+01/20/2022 12:45:21 - INFO - __main__ -   Loss: 0.3544502258300781
+01/20/2022 12:45:22 - INFO - __main__ -   Task: 0, Step: 2
+01/20/2022 12:45:22 - INFO - __main__ -   Loss: 0.28894317150115967
+01/20/2022 12:45:23 - INFO - __main__ -   Task: 2, Step: 3
+01/20/2022 12:45:23 - INFO - __main__ -   Loss: 0.5669682323932648
+01/20/2022 12:45:23 - INFO - __main__ -   Task: 2, Step: 4
+01/20/2022 12:45:23 - INFO - __main__ -   Loss: 0.6779635906219482
+01/20/2022 12:45:24 - INFO - __main__ -   Task: 2, Step: 5
+01/20/2022 12:45:24 - INFO - __main__ -   Loss: 0.763475259145101
+01/20/2022 12:45:24 - INFO - __main__ -   Task: 2, Step: 6
+01/20/2022 12:45:24 - INFO - __main__ -   Loss: 0.7942197067396981
+01/20/2022 12:45:25 - INFO - __main__ -   Task: 2, Step: 7
+01/20/2022 12:45:25 - INFO - __main__ -   Loss: 0.8400161936879158
+01/20/2022 12:55:34 - INFO - __main__ -   Task: 2, Step: 1000
+01/20/2022 12:55:35 - INFO - __main__ -   Loss: 0.44177970561114227
+01/20/2022 12:55:35 - INFO - __main__ -   Task: 7, Step: 1001
+01/20/2022 12:55:35 - INFO - __main__ -   Loss: 0.07564401519512702
+01/20/2022 12:55:36 - INFO - __main__ -   Task: 6, Step: 1002
+01/20/2022 12:55:36 - INFO - __main__ -   Loss: 0.23514175296186332
+01/20/2022 12:55:36 - INFO - __main__ -   Task: 6, Step: 1003
+01/20/2022 12:55:36 - INFO - __main__ -   Loss: 0.2353876593162814
+01/20/2022 12:55:37 - INFO - __main__ -   Task: 5, Step: 1004
+01/20/2022 12:55:37 - INFO - __main__ -   Loss: 0.04337339822332657
+01/20/2022 12:55:38 - INFO - __main__ -   Task: 2, Step: 1005
+01/20/2022 12:55:38 - INFO - __main__ -   Loss: 0.4406029639495296
+01/20/2022 12:55:38 - INFO - __main__ -   Task: 2, Step: 1006
+01/20/2022 12:55:38 - INFO - __main__ -   Loss: 0.4411453161954643
+01/20/2022 12:55:39 - INFO - __main__ -   Task: 2, Step: 1007
+01/20/2022 12:55:39 - INFO - __main__ -   Loss: 0.4416907364059062
+01/20/2022 13:05:49 - INFO - __main__ -   Task: 6, Step: 2000
+01/20/2022 13:05:49 - INFO - __main__ -   Loss: 0.21486855397696258
+01/20/2022 13:05:50 - INFO - __main__ -   Task: 6, Step: 2001
+01/20/2022 13:05:50 - INFO - __main__ -   Loss: 0.21502396677221572
+01/20/2022 13:05:50 - INFO - __main__ -   Task: 6, Step: 2002
+01/20/2022 13:05:50 - INFO - __main__ -   Loss: 0.21520517862444213
+01/20/2022 13:05:51 - INFO - __main__ -   Task: 2, Step: 2003
+01/20/2022 13:05:51 - INFO - __main__ -   Loss: 0.40940217792749883
+01/20/2022 13:05:51 - INFO - __main__ -   Task: 2, Step: 2004
+01/20/2022 13:05:51 - INFO - __main__ -   Loss: 0.40972327475535897
+01/20/2022 13:05:52 - INFO - __main__ -   Task: 6, Step: 2005
+01/20/2022 13:05:52 - INFO - __main__ -   Loss: 0.2151167240599217
+01/20/2022 13:05:53 - INFO - __main__ -   Task: 7, Step: 2006
+01/20/2022 13:05:53 - INFO - __main__ -   Loss: 0.07689452073321036
+01/20/2022 13:05:53 - INFO - __main__ -   Task: 2, Step: 2007
+01/20/2022 13:05:53 - INFO - __main__ -   Loss: 0.40954697013376246
+Epoch:   0%|          | 0/25 [24:34<?, ?it/s]
+Traceback (most recent call last):
+  File "/mnt/ufs18/home-052/surunze/Gated_bert/run_multi_task_gated.py", line 937, in <module>
+    main()
+  File "/mnt/ufs18/home-052/surunze/Gated_bert/run_multi_task_gated.py", line 920, in main
+    ev_acc += do_eval(model, logger, args, device, tr_loss[i], nb_tr_steps, global_step, processor_list[i], 
+  File "/mnt/ufs18/home-052/surunze/Gated_bert/run_multi_task_gated.py", line 490, in do_eval
+    tmp_eval_loss, logits = model(input_ids, segment_ids, input_mask, i, task_id, label_ids)
+  File "/mnt/home/surunze/.local/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/mnt/ufs18/home-052/surunze/Gated_bert/modeling_gated.py", line 676, in forward
+    _, pooled_output = self.bert(input_ids, token_type_ids, attention_mask, task_id)
+  File "/mnt/home/surunze/.local/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/mnt/ufs18/home-052/surunze/Gated_bert/modeling_gated.py", line 643, in forward
+    all_encoder_layers = self.encoder(embedding_output, extended_attention_mask, i)
+  File "/mnt/home/surunze/.local/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/mnt/ufs18/home-052/surunze/Gated_bert/modeling_gated.py", line 554, in forward
+    hidden_states = layer_module(hidden_states, attention_mask, i)
+  File "/mnt/home/surunze/.local/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/mnt/ufs18/home-052/surunze/Gated_bert/modeling_gated.py", line 479, in forward
+    attention_output = self.attention(hidden_states, attention_mask, i)
+  File "/mnt/home/surunze/.local/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/mnt/ufs18/home-052/surunze/Gated_bert/modeling_gated.py", line 367, in forward
+    self_output = self.self(input_tensor, attention_mask, i)
+  File "/mnt/home/surunze/.local/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/mnt/ufs18/home-052/surunze/Gated_bert/modeling_gated.py", line 280, in forward
+    weight = nn.Softmax(dim=-1)(self.weight_layer(hidden_states.view(32, -1))).view(32, 1, -1).repeat(1, 128, 1)
+  File "/mnt/home/surunze/.local/lib/python3.9/site-packages/torch/nn/modules/module.py", line 1102, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/mnt/home/surunze/.local/lib/python3.9/site-packages/torch/nn/modules/linear.py", line 103, in forward
+    return F.linear(input, self.weight, self.bias)
+  File "/mnt/home/surunze/.local/lib/python3.9/site-packages/torch/nn/functional.py", line 1848, in linear
+    return torch._C._nn.linear(input, weight, bias)
+RuntimeError: mat1 and mat2 shapes cannot be multiplied (32x24576 and 98304x8)
