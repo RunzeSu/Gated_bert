@@ -504,6 +504,7 @@ def do_eval(model, logger, args, device, tr_loss, nb_tr_steps, global_step, proc
             logits = logits.detach().cpu().numpy()
             label_ids = label_ids.to('cpu').numpy()
             tmp_eval_accuracy = accuracy(logits, label_ids)
+            
 
         eval_loss += tmp_eval_loss.mean().item()
         if task_id == 'cola' or task_id == 'sts':
@@ -595,7 +596,7 @@ def main():
                         type=int,
                         help="Total batch size for training.")
     parser.add_argument("--eval_batch_size",
-                        default=8,
+                        default=32,
                         type=int,
                         help="Total batch size for eval.")
     parser.add_argument("--h_aug",
@@ -736,7 +737,6 @@ def main():
         bert_config.hidden_size_aug = int(args.h_aug)
     model = BertForMultiTask(bert_config, [len(labels) for labels in label_list])
     
-    
     if args.init_checkpoint is not None:
         if args.multi:
             partial = torch.load(args.init_checkpoint, map_location='cpu')
@@ -751,7 +751,7 @@ def main():
                     if 'pooler.mult' in n and 'weight' in n:
                         update[n] = partial['pooler.dense.weight']
                 else:
-                    if '_list' in n or 'weight_layer' in n:
+                    if ('_list' in n) or ('weight_layer' in n) or ('task_emb' in n):
                         update[n] = model_dict[n]
                     else:
                         update[n] = partial[n]
@@ -889,7 +889,7 @@ def main():
                 input_ids, input_mask, segment_ids, label_ids = batch
                 
                 for n, p in model.bert.named_parameters():
-                    if (('query_list' in n) or ('key_list' in n) or ('value_list' in n)) and (('query_list.'+str(task_id) not in n) or ('key_list.'+str(task_id) not in n) or ('value_list.'+str(task_id) not in n)):
+                    if (('query_list' in n) or ('key_list' in n) or ('value_list' in n)) and (('query_list.'+str(task_id) not in n) and ('key_list.'+str(task_id) not in n) and ('value_list.'+str(task_id) not in n) and ('query_list2.'+str(task_id) not in n) and ('key_list2.'+str(task_id) not in n)):
                         p.requires_grad = False
                     else:
                         p.requires_grad = True
@@ -935,4 +935,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
