@@ -200,7 +200,7 @@ class BERTSelfAttention(nn.Module):
             self.attention_head_size = int(config.hidden_size / config.num_attention_heads)
             self.all_head_size = self.num_attention_heads * self.attention_head_size
             hidden_size = config.hidden_size
-
+        self.aug_dense = nn.Linear(config.hidden_size, config.hidden_size_aug)
         self.query = nn.Linear(hidden_size, self.all_head_size)
         self.key = nn.Linear(hidden_size, self.all_head_size)
         self.value = nn.Linear(hidden_size, self.all_head_size)
@@ -240,7 +240,70 @@ class BERTSelfAttention(nn.Module):
         context_layer = context_layer.view(*new_context_layer_shape)
         return context_layer
     
-    
+
+class BERTLukaszSelfAttention(nn.Module):
+    def __init__(self, config):
+        super(BERTLukaszSelfAttention, self).__init__()
+        if config.hidden_size % config.num_attention_heads != 0:
+            raise ValueError(
+                "The hidden size (%d) is not a multiple of the number of attention "
+                "heads (%d)" % (config.hidden_size, config.num_attention_heads))
+
+        self.num_attention_heads = config.num_attention_heads
+        self.attention_head_size = int(config.hidden_size / config.num_attention_heads)
+        self.all_head_size = self.num_attention_heads * self.attention_head_size
+        hidden_size = config.hidden_size
+
+        self.query = nn.Linear(hidden_size, self.all_head_size)
+        self.key = nn.Linear(hidden_size, self.all_head_size)
+        self.value = nn.Linear(hidden_size, self.all_head_size)
+
+        self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
+        
+#         self.query_task_emb = nn.Linear(config.num_tasks, self.self.all_head_size)
+#         self.key_task_emb = nn.Linear(config.num_tasks, self.self.all_head_size)
+#         self.value_task_emb = nn.Linear(config.num_tasks, self.self.all_head_size)
+        
+        self.query_task_emb = nn.Embedding(config.num_tasks, self.all_head_size)
+        self.key_task_emb = nn.Embedding(config.num_tasks, self.all_head_size)
+        self.value_task_emb = nn.Embedding(config.num_tasks, self.all_head_size)
+
+    def transpose_for_scores(self, x):
+        new_x_shape = x.size()[:-1] + (self.num_attention_heads, self.attention_head_size)
+        x = x.view(*new_x_shape)
+        return x.permute(0, 2, 1, 3)
+
+    def forward(self, hidden_states, attention_mask, index):
+        i = torch.tensor(index).to(hidden_states.device)
+        query_emb = self.query_task_emb(i).view((1,1,-1))
+        key_emb = self.key_task_emb(i).view((1,1,-1))
+        value_emb = self.value_task_emb(i).view((1,1,-1))
+        mixed_query_layer = self.query(hidden_states) + query_emb
+        mixed_key_layer = self.key(hidden_states) + key_emb
+        mixed_value_layer = self.value(hidden_states) + value_emb
+        query_layer = self.transpose_for_scores(mixed_query_layer)
+        key_layer = self.transpose_for_scores(mixed_key_layer)
+        value_layer = self.transpose_for_scores(mixed_value_layer)
+
+        # Take the dot product between "query" and "key" to get the raw attention scores.
+        attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
+        attention_scores = attention_scores / math.sqrt(self.attention_head_size)
+        # Apply the attention mask is (precomputed for all layers in BertModel forward() function)
+        attention_scores = attention_scores + attention_mask
+
+        # Normalize the attention scores to probabilities.
+        attention_probs = nn.Softmax(dim=-1)(attention_scores)
+
+        # This is actually dropping out entire tokens to attend to, which might
+        # seem a bit unusual, but is taken from the original Transformer paper.
+        attention_probs = self.dropout(attention_probs)
+
+        context_layer = torch.matmul(attention_probs, value_layer)
+        context_layer = context_layer.permute(0, 2, 1, 3).contiguous()
+        new_context_layer_shape = context_layer.size()[:-2] + (self.all_head_size,)
+        context_layer = context_layer.view(*new_context_layer_shape)
+        return context_layer
+
 class BERT_Gated_SelfAttention(nn.Module):
     def __init__(self, config):
         super(BERT_Gated_SelfAttention, self).__init__()
@@ -258,12 +321,15 @@ class BERT_Gated_SelfAttention(nn.Module):
         self.query = nn.Linear(hidden_size, self.all_head_size)
         self.key = nn.Linear(hidden_size, self.all_head_size)
         self.value = nn.Linear(hidden_size, self.all_head_size)
-
+        
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
-        self.query_list = nn.ModuleList([nn.Linear(hidden_size, self.all_head_size) for _ in range(config.num_tasks)]) 
-        self.key_list = nn.ModuleList([nn.Linear(hidden_size, self.all_head_size) for _ in range(config.num_tasks)]) 
+        self.query_list = nn.ModuleList([nn.Linear(hidden_size, config.hidden_size_aug) for _ in range(config.num_tasks)]) 
+        self.key_list = nn.ModuleList([nn.Linear(hidden_size, config.hidden_size_aug) for _ in range(config.num_tasks)]) 
+        self.query_list2 = nn.ModuleList([nn.Linear(config.hidden_size_aug, self.all_head_size) for _ in range(config.num_tasks)]) 
+        self.key_list2 = nn.ModuleList([nn.Linear(config.hidden_size_aug, self.all_head_size) for _ in range(config.num_tasks)]) 
         self.value_list = nn.ModuleList([nn.Linear(hidden_size, self.all_head_size) for _ in range(config.num_tasks)]) 
-        self.weight_layer = nn.Linear(hidden_size*128, config.num_tasks)
+        self.weight_layer_q = nn.Linear(hidden_size*128, config.num_tasks)
+        self.weight_layer_k = nn.Linear(hidden_size*128, config.num_tasks)
         
         
     def transpose_for_scores(self, x):
@@ -273,11 +339,13 @@ class BERT_Gated_SelfAttention(nn.Module):
 
     def forward(self, hidden_states, attention_mask, index):
         config = self.config
-        mixed_query_layer = self.query(hidden_states) + self.query_list[index](hidden_states)
-        mixed_key_layer = self.key(hidden_states) + self.key_list[index](hidden_states)
+        mixed_query_layer = self.query(hidden_states) + self.query_list2[index](self.query_list[index](hidden_states))
+        mixed_key_layer = self.key(hidden_states) + self.key_list2[index](self.key_list[index](hidden_states))
         mixed_value_layer = self.value(hidden_states) + self.value_list[index](hidden_states)
         
-        weight = nn.Softmax(dim=-1)(self.weight_layer(hidden_states.view(32, -1))).view(32, 1, -1).repeat(1, 128, 1)
+        weight_q = nn.Softmax(dim=-1)(self.weight_layer_q(hidden_states.view(hidden_states.shape[0], -1))).view(hidden_states.shape[0], 1, -1).repeat(1, 128, 1)
+        weight_k = nn.Softmax(dim=-1)(self.weight_layer_k(hidden_states.view(hidden_states.shape[0], -1))).view(hidden_states.shape[0], 1, -1).repeat(1, 128, 1)
+        
         #print(weight.shape, mixed_query_layer.shape)
         other_task_index = 0
         #print(weight.shape, self.query_list[other_task_index](hidden_states).shape, mixed_query_layer.shape)
@@ -287,9 +355,8 @@ class BERT_Gated_SelfAttention(nn.Module):
                 other_task_index += 1
             loc = other_task_index
             #print(loc, other_task_index, index, weight[:, :, loc:loc+1].shape)
-            mixed_query_layer += torch.mul(weight[:, :, loc:loc+1], self.query_list[other_task_index](hidden_states))
-            mixed_key_layer += torch.mul(weight[:, :, loc:loc+1], self.key_list[other_task_index](hidden_states))
-            mixed_value_layer += torch.mul(weight[:, :, loc:loc+1], self.value_list[other_task_index](hidden_states))
+            mixed_query_layer += torch.mul(weight_q[:, :, loc:loc+1], self.query_list2[other_task_index](self.query_list[other_task_index](hidden_states)))
+            mixed_key_layer += torch.mul(weight_k[:, :, loc:loc+1], self.key_list2[other_task_index](self.key_list[other_task_index](hidden_states)))
             other_task_index += 1
             
         query_layer = self.transpose_for_scores(mixed_query_layer)
@@ -352,21 +419,22 @@ class BERTSelfOutput(nn.Module):
 
 
 class BERTAttention(nn.Module):
-    def __init__(self, config, multi_params=None, houlsby=False):
+    def __init__(self, config, multi_params=None, houlsby=False, index=0):
         super(BERTAttention, self).__init__()
-        
+        self.config = config
+        self.index = index
         self.our_attn = config.our_attn
-        if config.our_attn:
+        if config.our_attn and index == config.num_hidden_layers - 1:
             self.self = BERT_Gated_SelfAttention(config)
         else:
-            self.self = BERTSelfAttention(config, multi_params)
+            self.self = BERTLukaszSelfAttention(config)
         self.output = BERTSelfOutput(config, multi_params, houlsby)
 
     def forward(self, input_tensor, attention_mask, i=0):
-        if self.our_attn:
+        if self.our_attn and self.index == self.config.num_hidden_layers - 1:
             self_output = self.self(input_tensor, attention_mask, i)
         else:
-            self_output = self.self(input_tensor, attention_mask)
+            self_output = self.self(input_tensor, attention_mask, i)
         attention_output = self.output(self_output, input_tensor, attention_mask, i=i)
         return attention_output
 
@@ -457,9 +525,9 @@ class BERTOutput(nn.Module):
 
 
 class BERTLayer(nn.Module):
-    def __init__(self, config, mult=False, houlsby=False):
+    def __init__(self, config, mult=False, houlsby=False, index = 0):
         super(BERTLayer, self).__init__()
-        self.attention = BERTAttention(config, houlsby=houlsby)
+        self.attention = BERTAttention(config, houlsby=houlsby, index=index)
         self.intermediate = BERTIntermediate(config)
         self.output = BERTOutput(config, houlsby=houlsby)
         if config.lhuc:
@@ -506,8 +574,7 @@ class BERTEncoder(nn.Module):
             self.multis = [True if i < 999 else False for i in range(config.num_hidden_layers)]
             self.layer = nn.ModuleList([BERTLayer(config, mult=mult) for mult in self.multis])    
         else:
-            layer = BERTLayer(config)
-            self.layer = nn.ModuleList([copy.deepcopy(layer) for _ in range(config.num_hidden_layers)])
+            self.layer = nn.ModuleList([BERTLayer(config, index = layer_num) for layer_num in range(config.num_hidden_layers)])
 
         if config.top:
             if config.bert_lay_top:
@@ -878,4 +945,3 @@ class BertForMultipleChoice(nn.Module):
             return loss
         else:
             return reshaped_logits
-
