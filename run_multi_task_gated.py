@@ -36,12 +36,15 @@ from torch.utils.data.distributed import DistributedSampler
 import tokenization
 from modeling_gated import BertConfig, BertForSequenceClassification, BertForMultiTask
 from optimization_gated import BERTAdam
+from torch.utils.tensorboard import SummaryWriter
 
 logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(message)s', 
                     datefmt = '%m/%d/%Y %H:%M:%S',
                     level = logging.INFO)
 logger = logging.getLogger(__name__)
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
+
+
 
 class InputExample(object):
     """A single training/test example for simple sequence classification."""
@@ -646,6 +649,7 @@ def main():
                         default=1,
                         help="Number of updates steps to accumualte before performing a backward/update pass.")                       
     args = parser.parse_args()
+    writer = SummaryWriter('./experiment_summary')
     print(torch.cuda.is_available(), torch.cuda.get_device_name(0))
     processors = {
         "cola": ColaProcessor,
@@ -751,16 +755,41 @@ def main():
                     if 'pooler.mult' in n and 'weight' in n:
                         update[n] = partial['pooler.dense.weight']
                 else:
-                    if ('_list' in n) or ('weight_layer' in n) or ('task_emb' in n):
+                    if ('_list' in n) or ('task_emb' in n):
                         update[n] = model_dict[n]
                     else:
-                        update[n] = partial[n]
-
+                        if ('weight_layer' in n):
+                            update[n] = torch.zeros(model_dict[n].shape)
+                        else:
+                            update[n] = partial[n]
             model.bert.load_state_dict(update)
             
         else:
             model.bert.load_state_dict(torch.load(args.init_checkpoint, map_location='cpu'))
-    
+    """
+    if args.init_checkpoint is not None:
+        if args.multi:
+            partial = torch.load(args.init_checkpoint, map_location='cpu')
+            model_dict = model.bert.state_dict()
+            #print(model_dict.keys())
+            update = {}
+            for n, p in model_dict.items():
+                if 'aug' in n or 'mult' in n:
+                    update[n] = p
+                    if 'pooler.mult' in n and 'bias' in n:
+                        update[n] = partial['pooler.dense.bias']
+                    if 'pooler.mult' in n and 'weight' in n:
+                        update[n] = partial['pooler.dense.weight']
+                else:
+                    if ('_list' in n) or ('task_emb' in n) or ('weight_layer' in n):
+                        update[n] = model_dict[n]
+                    else:
+                        update[n] = partial[n]
+            model.bert.load_state_dict(update)
+            
+        else:
+            model.bert.load_state_dict(torch.load(args.init_checkpoint, map_location='cpu'))
+    """    
     if args.freeze:
         for n, p in model.bert.named_parameters():
             if 'aug' in n or 'classifier' in n or 'mult' in n or 'gamma' in n or 'beta' in n:
@@ -827,6 +856,7 @@ def main():
             eval_loaders.append(DataLoader(eval_data, sampler=eval_sampler, batch_size=args.eval_batch_size))
 
     global_step = 0
+    
     if args.do_train:
         loaders = []
         logger.info("  Num Tasks = %d", len(train_examples))
@@ -850,6 +880,11 @@ def main():
             else:
                 train_sampler = DistributedSampler(train_data)
             loaders.append(iter(DataLoader(train_data, sampler=train_sampler, batch_size=args.train_batch_size)))
+        #dataiter = iter(DataLoader(train_data, sampler=train_sampler, batch_size=args.train_batch_size))
+        #input_ids, input_mask, segment_ids, label_ids = dataiter.next()
+        #writer.add_graph(model, [input_ids, segment_ids, input_mask, 0, task_names[0], label_ids])
+        #writer.close()
+        print(model)
         total_params = sum(p.numel() for p in model.parameters())
         logger.info("  Num param = {}".format(total_params))
         loaders = [cycle(it) for it in loaders]
@@ -864,12 +899,13 @@ def main():
             probs = [p**alpha for p in probs]
             tot = sum(probs)
             probs = [p/tot for p in probs]
+        #Step 1
         task_id = 0
         epoch = 0
         for _ in trange(int(args.num_train_epochs), desc="Epoch"):
             if args.sample == 'anneal':
                 probs = [6680, 2865, 306798, 1945, 4491, 52616, 284257, 84715]
-                alpha = 1. - 0.8 * epoch / (args.num_train_epochs - 1)
+                alpha = 1. - 0.8 * (epoch%20) / (20 - 1)
                 probs = [p**alpha for p in probs]
                 tot = sum(probs)
                 probs = [p/tot for p in probs]
@@ -887,13 +923,33 @@ def main():
                 batch = next(loaders[task_id])
                 batch = tuple(t.to(device) for t in batch)
                 input_ids, input_mask, segment_ids, label_ids = batch
-                
+                              
+                if epoch < 20: 
+
+                    for n, p in model.bert.named_parameters():
+                        if ((('query_list' in n) or ('key_list' in n) or ('value_list' in n)) and (('query_list.'+str(task_id) not in n) and ('key_list.'+str(task_id) not in n)) and ('value_list.'+str(task_id) not in n) and ('query_list2.'+str(task_id) not in n) and ('key_list2.'+str(task_id) not in n)) or ('weight_layer' in n):
+                            p.requires_grad = False
+                        else:
+                            p.requires_grad = True
+                elif epoch < 40:
+                    for n, p in model.bert.named_parameters():
+                        if ((('query_list' in n) or ('key_list' in n) or ('value_list' in n)) and (('query_list.'+str(task_id) not in n) and ('key_list.'+str(task_id) not in n)) and ('value_list.'+str(task_id) not in n) and ('query_list2.'+str(task_id) not in n) and ('key_list2.'+str(task_id) not in n)):
+                            p.requires_grad = False
+                        else:
+                            p.requires_grad = True
+                else:
+                    for n, p in model.bert.named_parameters():
+                        if ((('query_list' in n) or ('key_list' in n) or ('value_list' in n)) and (('query_list.'+str(task_id) not in n) and ('key_list.'+str(task_id) not in n)) and ('value_list.'+str(task_id) not in n) and ('query_list2.'+str(task_id) not in n) and ('key_list2.'+str(task_id) not in n)) or ('self.query.' in n) or ('self.key.' in n) or ('self.value.' in n):
+                            p.requires_grad = False
+                        else:
+                            p.requires_grad = True
+                """
                 for n, p in model.bert.named_parameters():
-                    if (('query_list' in n) or ('key_list' in n) or ('value_list' in n)) and (('query_list.'+str(task_id) not in n) and ('key_list.'+str(task_id) not in n) and ('value_list.'+str(task_id) not in n) and ('query_list2.'+str(task_id) not in n) and ('key_list2.'+str(task_id) not in n)):
+                    if ((('query_list' in n) or ('key_list' in n) or ('value_list' in n)) and (('query_list.'+str(task_id) not in n) and ('key_list.'+str(task_id) not in n)) and ('value_list.'+str(task_id) not in n) and ('query_list2.'+str(task_id) not in n) and ('key_list2.'+str(task_id) not in n)):
                         p.requires_grad = False
                     else:
                         p.requires_grad = True
-                
+                """  
                 loss, _ = model(input_ids, segment_ids, input_mask, task_id, task_names[task_id], label_ids)
                 if n_gpu > 1:
                     loss = loss.mean() # mean() to average on multi-gpu.
@@ -914,8 +970,12 @@ def main():
                     global_step += 1
                     if not args.sample:
                         task_id += 1
+                
             epoch += 1
+            model_path = os.path.join(args.output_dir, str(epoch))
+            torch.save(model.state_dict(), model_path)
             ev_acc = 0.
+            
             for i, task in enumerate(task_names):
                 ev_acc += do_eval(model, logger, args, device, tr_loss[i], nb_tr_steps, global_step, processor_list[i], 
                                   label_list[i], tokenizer, eval_loaders[i], task, i)
