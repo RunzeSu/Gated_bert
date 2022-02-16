@@ -30,6 +30,8 @@ from torch.autograd import Variable
 from torch.nn.parameter import Parameter
 
 
+# default `log_dir` is "runs" - we'll be more specific here
+
 def gelu(x):
     """Implementation of the gelu activation function.
         For information: OpenAI GPT's gelu is slightly different (and gives slightly different results):
@@ -330,7 +332,13 @@ class BERT_Gated_SelfAttention(nn.Module):
         self.value_list = nn.ModuleList([nn.Linear(hidden_size, self.all_head_size) for _ in range(config.num_tasks)]) 
         self.weight_layer_q = nn.Linear(hidden_size*128, config.num_tasks)
         self.weight_layer_k = nn.Linear(hidden_size*128, config.num_tasks)
+        self.weight_task_emb_q_1 = nn.Embedding(config.num_tasks, self.all_head_size)
+        self.weight_task_emb_k_1 = nn.Embedding(config.num_tasks, self.all_head_size)
+        self.weight_task_emb_q_2 = nn.Embedding(config.num_tasks, self.all_head_size)
+        self.weight_task_emb_k_2 = nn.Embedding(config.num_tasks, self.all_head_size)
+        self.weight_task_emb_v = nn.Embedding(config.num_tasks, self.all_head_size)
         
+
         
     def transpose_for_scores(self, x):
         new_x_shape = x.size()[:-1] + (self.num_attention_heads, self.attention_head_size)
@@ -339,9 +347,17 @@ class BERT_Gated_SelfAttention(nn.Module):
 
     def forward(self, hidden_states, attention_mask, index):
         config = self.config
-        mixed_query_layer = self.query(hidden_states) + self.query_list2[index](self.query_list[index](hidden_states))
-        mixed_key_layer = self.key(hidden_states) + self.key_list2[index](self.key_list[index](hidden_states))
-        mixed_value_layer = self.value(hidden_states) + self.value_list[index](hidden_states)
+        i = torch.tensor(index).to(hidden_states.device)
+        weight_emb_q_1 = self.weight_task_emb_q_1(i).view((1,1,-1))
+        weight_emb_k_1 = self.weight_task_emb_k_1(i).view((1,1,-1))
+        weight_emb_q_2 = self.weight_task_emb_q_2(i).view((1,1,-1))
+        weight_emb_k_2 = self.weight_task_emb_k_2(i).view((1,1,-1))
+        weight_emb_v = self.weight_task_emb_v(i).view((1,1,-1))
+        
+        mixed_query_layer = self.query(hidden_states) + weight_emb_q_1*self.query_list2[index](self.query_list[index](hidden_states))
+        mixed_key_layer = self.key(hidden_states) + weight_emb_k_1*self.key_list2[index](self.key_list[index](hidden_states))
+        mixed_value_layer = self.value(hidden_states) + weight_emb_v*self.value_list[index](hidden_states)
+        #mixed_value_layer = self.value(hidden_states) + self.value_list[index](hidden_states)
         
         weight_q = nn.Softmax(dim=-1)(self.weight_layer_q(hidden_states.view(hidden_states.shape[0], -1))).view(hidden_states.shape[0], 1, -1).repeat(1, 128, 1)
         weight_k = nn.Softmax(dim=-1)(self.weight_layer_k(hidden_states.view(hidden_states.shape[0], -1))).view(hidden_states.shape[0], 1, -1).repeat(1, 128, 1)
@@ -355,8 +371,8 @@ class BERT_Gated_SelfAttention(nn.Module):
                 other_task_index += 1
             loc = other_task_index
             #print(loc, other_task_index, index, weight[:, :, loc:loc+1].shape)
-            mixed_query_layer += torch.mul(weight_q[:, :, loc:loc+1], self.query_list2[other_task_index](self.query_list[other_task_index](hidden_states)))
-            mixed_key_layer += torch.mul(weight_k[:, :, loc:loc+1], self.key_list2[other_task_index](self.key_list[other_task_index](hidden_states)))
+            mixed_query_layer += weight_emb_q_2*torch.mul(weight_q[:, :, loc:loc+1], self.query_list2[other_task_index](self.query_list[other_task_index](hidden_states)))
+            mixed_key_layer += weight_emb_k_2*torch.mul(weight_k[:, :, loc:loc+1], self.key_list2[other_task_index](self.key_list[other_task_index](hidden_states)))
             other_task_index += 1
             
         query_layer = self.transpose_for_scores(mixed_query_layer)
