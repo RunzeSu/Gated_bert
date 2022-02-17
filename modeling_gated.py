@@ -332,11 +332,11 @@ class BERT_Gated_SelfAttention(nn.Module):
         self.value_list = nn.ModuleList([nn.Linear(hidden_size, self.all_head_size) for _ in range(config.num_tasks)]) 
         self.weight_layer_q = nn.Linear(hidden_size*128, config.num_tasks)
         self.weight_layer_k = nn.Linear(hidden_size*128, config.num_tasks)
-        self.weight_task_emb_q_1 = nn.Embedding(config.num_tasks, self.all_head_size)
-        self.weight_task_emb_k_1 = nn.Embedding(config.num_tasks, self.all_head_size)
-        self.weight_task_emb_q_2 = nn.Embedding(config.num_tasks, self.all_head_size)
-        self.weight_task_emb_k_2 = nn.Embedding(config.num_tasks, self.all_head_size)
-        self.weight_task_emb_v = nn.Embedding(config.num_tasks, self.all_head_size)
+        self.weight_task_emb_q_1 = nn.Embedding(config.num_tasks, 1)
+        self.weight_task_emb_k_1 = nn.Embedding(config.num_tasks, 1)
+        self.weight_task_emb_q_2 = nn.Embedding(config.num_tasks, 1)
+        self.weight_task_emb_k_2 = nn.Embedding(config.num_tasks, 1)
+        self.weight_task_emb_v = nn.Embedding(config.num_tasks, 1)
         
 
         
