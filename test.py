@@ -431,8 +431,7 @@ def do_eval(model, device, processor, tokenizer, eval_dataloader, task_id, i, la
         output = pd.DataFrame(output)
     output.columns =["prediction"]
     
-    pd.DataFrame(output).to_csv(task_id+"_output.csv")
-
+    pd.DataFrame(output).to_csv(task_id+".tsv", sep="\t")
 
 parser = argparse.ArgumentParser()
 
