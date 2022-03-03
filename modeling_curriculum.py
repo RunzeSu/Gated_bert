@@ -735,8 +735,9 @@ class BertModel(nn.Module):
             index = torch.tensor(i).to(embedding_output.device)
             scale_medium = self.scale_medium(index).view((1,1,-1))
             scale_medium = nn.Softmax(dim=-1)(scale_medium)
+            scale_medium = scale_medium.repeat((sequence_output_1.shape[0], sequence_output_2.shape[1], 1))
             print(scale_medium.shape, sequence_output_1.shape, sequence_output_2.shape)
-            sequence_output = scale_medium[:, 0:1]*sequence_output_1 + scale_medium[:, 1:2]*sequence_output_2
+            sequence_output = scale_medium[:, :, 0:1]*sequence_output_1 + scale_medium[:, :, 1:2]*sequence_output_2
         
         if diff_level == "hard":
             sequence_output_1 = all_encoder_layers[-3]
@@ -745,8 +746,10 @@ class BertModel(nn.Module):
             index = torch.tensor(i).to(embedding_output.device)
             scale_hard = self.scale_hard(index).view((1,1,-1))
             scale_hard = nn.Softmax(dim=-1)(scale_hard)
-            sequence_output = scale_hard[:, 0:1]*sequence_output_1 + scale_hard[:, 1:2]*sequence_output_2 + scale_hard[:, 2:3]*sequence_output_3
+            scale_hard = scale_hard.repeat((sequence_output_1.shape[0], sequence_output_2.shape[1], 1))
             print(scale_hard.shape, sequence_output_1.shape, sequence_output_2.shape, sequence_output_3.shape)
+            sequence_output = scale_hard[:, :, 0:1]*sequence_output_1 + scale_hard[:, :, 1:2]*sequence_output_2 + scale_hard[:, :, 2:3]*sequence_output_3
+            
         pooled_output = self.pooler(sequence_output, i)
         return all_encoder_layers, pooled_output
 
@@ -983,4 +986,5 @@ class BertForMultipleChoice(nn.Module):
             return loss
         else:
             return reshaped_logits
+
 
